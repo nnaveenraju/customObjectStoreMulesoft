@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:signature="http://www.mulesoft.org/schema/mule/signature" xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/objectstore http://www.mulesoft.org/schema/mule/objectstore/current/mule-objectstore.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/signature http://www.mulesoft.org/schema/mule/signature/current/mule-signature.xsd">
+<http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="${http.port}" doc:name="HTTP Listener Configuration"/>
+
+<spring:beans>     
+    <spring:bean name="customObjectStore" class="com.naveen.objectstore.CustomMonitoredObjectStore" id="customObjectStore">
+       <spring:constructor-arg ref="_defaultUserObjectStore"/>
+        <spring:property name="entryTTL" value="${objectstore.entryTTL}" />
+        <spring:property name="expirationInterval" value="${objectstore.expirationInterval}" />
+    </spring:bean>
+</spring:beans>
+
+<flow name="testfilter">
+<http:listener config-ref="HTTP_Listener_Configuration" path="/test" doc:name="/test" allowedMethods="GET"/>
+<logger message="RequestHeader-before filter : #[message.inboundProperties.'http.query.params'.username]" level="INFO" doc:name="log username"/>
+<set-variable variableName="user_name" value="#[message.inboundProperties.'http.query.params'.username]" doc:name="Variable"/>
+<processor-chain doc:name="Processor Chain">
+<idempotent-message-filter idExpression="#[flowVars.user_name]" doc:name="Idempotent Message">
+    <spring-object-store ref="customObjectStore"/>
+
+</idempotent-message-filter>
+<set-payload value="Idempotent Test Completed : User name #[flowVars.user_name]" doc:name="Set Payload"/>
+<logger message="AFTER Idempotent Check -- #[flowVars.user_name]" level="INFO" doc:name="Logger"/>
+</processor-chain>
+</flow>
+
+<sub-flow name="invoke-java-method">
+    <invoke object-ref="customObjectStoreInstance" method="remove" methodArguments="#[message.payloadAs(String)]" doc:name="Invoke"/>
+</sub-flow>
+    
+    
+
+</mule>

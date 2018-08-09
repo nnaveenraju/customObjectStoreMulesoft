@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
+	xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore" xmlns:jdbc-ee="http://www.mulesoft.org/schema/mule/ee/jdbc"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
+http://www.mulesoft.org/schema/mule/ee/jdbc http://www.mulesoft.org/schema/mule/ee/jdbc/current/mule-jdbc-ee.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/objectstore http://www.mulesoft.org/schema/mule/objectstore/current/mule-objectstore.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+
+<objectstore:config name="customObjectStoreConfig" objectStore-ref="customObjectStore" doc:name="jdbcObjectStoreConfig" />
+    <!-- Store in the objectStore  -->
+    <flow name="customobjectstoreStoreFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="store" doc:name="HTTP"/>
+        <logger message="storing data with key --&gt;#[message.inboundProperties['http.query.params'].key]" level="INFO" doc:name="Logger"/>
+        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+        <set-payload value="#[payload]" doc:name="Set Payload"/>
+        <objectstore:store config-ref="customObjectStoreConfig" doc:name="ObjectStore" key="#[message.inboundProperties['http.query.params'].key]" value-ref="#[payload]"/>
+    </flow>
+    
+     <!-- delete from the objectStore  -->
+    <flow name="customobjectstoreDeleteFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/delete" doc:name="HTTP"/>
+        <logger message="deleting data with key --&gt; #[message.inboundProperties['http.query.params'].key]" level="INFO" doc:name="Logger"/>
+        <objectstore:remove config-ref="customObjectStoreConfig" key="#[message.inboundProperties['http.query.params'].key]" doc:name="ObjectStore"/>
+    </flow>
+    
+     <!-- All keys stored in the objectStore  -->
+    
+     <!-- If key is present in the objectStore  -->
+    <flow name="customobjectstoreContainsFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/contains" doc:name="HTTP"/>
+        <objectstore:contains config-ref="customObjectStoreConfig" key="#[message.inboundProperties['http.query.params'].key]" doc:name="ObjectStore"/>
+        <object-to-string-transformer doc:name="Object to String"/>
+        <choice doc:name="Choice">
+            <when expression="payload">
+                <logger message="#[message.inboundProperties['http.query.params'].key] Exist" level="INFO" doc:name="Logger"/>
+            </when>
+            <otherwise>
+                <logger message="#[message.inboundProperties['http.query.params'].key] doesn't exist" level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice>
+    </flow>
+    
+     <!-- Retrieve a key from objectStore  -->
+    <flow name="customobjectstoreRetrieveFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/retrieve" doc:name="HTTP"/>
+       <logger message="Retrieving data with key --&gt; #[message.inboundProperties['http.query.params'].key]" level="INFO" doc:name="Logger"/>
+        <objectstore:retrieve config-ref="customObjectStoreConfig" doc:name="ObjectStore" key="#[message.inboundProperties['http.query.params'].key]"/>
+        <logger message="Value stored : #[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+</mule>
